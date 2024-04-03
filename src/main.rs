@@ -13,8 +13,8 @@ use piston::window::WindowSettings;
 
 use num::complex::Complex as cmp;
 
-const GRAPH_SCALE: f64 = 175.0;
-const ITERATIONS: i32 = 100;
+const GRAPH_SCALE: f64 = 20.0;
+const ITERATIONS: i32 = 1500;
 
 const MAGIC_RE: f64 = 0.3602404434376143632361252444495453084826;
 const MAGIC_IM: f64 = -0.641313061064803174860375015179302066579;
@@ -48,6 +48,8 @@ pub struct App {
     re_scale: f64,
     im_scale: f64,
     zoom: f64,
+    scalar: f32,
+    step_factor: f32
 }
 
 impl App {
@@ -81,9 +83,15 @@ impl App {
                     if self.vals[b][a] == ITERATIONS {
                         colour = black;
                     } else {
-                        colour_mod = self.vals[b][a] as f32 / ITERATIONS as f32; 
+                        if self.scalar > 0.05 {
+                            colour_mod = self.vals[b][a] as f32 / (100 as f32) as f32 * self.scalar; 
+                        } else {
+
+                            colour_mod = self.vals[b][a] as f32 / (100 as f64) as f32 * 0.05; 
+                        }
+                        
                     
-                        colour = [colour_mod * 1.2, colour_mod * 1.0, colour_mod * 1.5, 1.0];
+                        colour = [colour_mod * 2.4, colour_mod * 2.0, colour_mod * 3.0, 1.0];
                     }
 
                     let transform = c
@@ -150,6 +158,25 @@ impl App {
         self.im_scale *= im_scalar;
         
         self.zoom *= 0.95;
+
+        if self.scalar > 0.00001 {
+            self.step_factor = 0.000001;
+        }
+        if self.scalar > 0.0001 {
+            self.step_factor = 0.00001;
+        }
+        if self.scalar > 0.001 {
+            self.step_factor = 0.0001;
+        }
+        if self.scalar > 0.01 {
+            self.step_factor = 0.001;
+        }
+        if self.scalar > 0.1 {
+            self.step_factor = 0.01
+        }
+
+        println!("scalar = {0}\n -> step factor = {1}", self.scalar, self.step_factor);
+        self.scalar -= self.step_factor;
     }
 
 }
@@ -186,6 +213,8 @@ fn main() {
         re_scale: GRAPH_SCALE,
         im_scale: GRAPH_SCALE,
         zoom: 0.10,
+        scalar: 2.0,
+        step_factor: 0.01
     };
 
     let mut events = Events::new(EventSettings::new());
