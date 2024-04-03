@@ -13,8 +13,8 @@ use piston::window::WindowSettings;
 
 use num::complex::Complex as cmp;
 
-const GRAPH_SCALE: f64 = 175.0;
-const ITERATIONS: i32 = 100;
+const GRAPH_SCALE: f64 = 100.0;
+const ITERATIONS: i32 = 1500;
 
 const MAGIC_RE: f64 = 0.3602404434376143632361252444495453084826;
 const MAGIC_IM: f64 = -0.641313061064803174860375015179302066579;
