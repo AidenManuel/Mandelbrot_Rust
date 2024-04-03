@@ -13,8 +13,8 @@ use piston::window::WindowSettings;
 
 use num::complex::Complex as cmp;
 
-const GRAPH_SCALE: f64 = 20.0;
-const ITERATIONS: i32 = 1500;
+const GRAPH_SCALE: f64 = 175.0;
+const ITERATIONS: i32 = 50;
 
 const MAGIC_RE: f64 = 0.3602404434376143632361252444495453084826;
 const MAGIC_IM: f64 = -0.641313061064803174860375015179302066579;
@@ -110,7 +110,6 @@ impl App {
     
     fn update(&mut self, _args: &UpdateArgs) {
         let bound = cmp::new(2.0, 0.0);
-
         let mut z: cmp<f64>;
         let mut z_next: cmp<f64>;
         let mut c: cmp<f64>;
@@ -135,13 +134,13 @@ impl App {
                         done = true;
                     }
                 }
-                
-                self.vals[b as usize][a as usize] = count;
-    
+                self.vals[b][a] = count;
+
                 done = false;
                 count = 0;
             }
         }
+
 
         let re_zoom = self.zoom;
         let im_zoom = re_zoom * RAT;
@@ -159,23 +158,23 @@ impl App {
         
         self.zoom *= 0.95;
 
-        if self.scalar > 0.00001 {
+        if self.scalar > 0.000005 {
             self.step_factor = 0.000001;
         }
-        if self.scalar > 0.0001 {
+        if self.scalar > 0.00005 {
             self.step_factor = 0.00001;
         }
-        if self.scalar > 0.001 {
+        if self.scalar > 0.0005 {
             self.step_factor = 0.0001;
         }
         if self.scalar > 0.01 {
             self.step_factor = 0.001;
         }
-        if self.scalar > 0.1 {
+        if self.scalar > 0.23 {
             self.step_factor = 0.01
         }
 
-        println!("scalar = {0}\n -> step factor = {1}", self.scalar, self.step_factor);
+        //println!("scalar = {0}\n -> step factor = {1}", self.scalar, self.step_factor);
         self.scalar -= self.step_factor;
     }
 
