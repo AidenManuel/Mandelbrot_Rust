@@ -37,14 +37,6 @@ use opengl_graphics::{GlGraphics, OpenGL};
 use piston::event_loop::{EventSettings, Events};
 use piston::input::{RenderArgs, RenderEvent, UpdateArgs, UpdateEvent};
 use piston::window::WindowSettings;
-<<<<<<< HEAD
-use piston::GenericEvent;
-use rayon::prelude::*;
-use std::sync::atomic::{AtomicI32, Ordering};
-use std::thread::ThreadId;
-
-=======
->>>>>>> 826b09b8635224c39199137eba3c995b17bfa21b
 use num::complex::Complex as cmp;
 
 const GRAPH_SCALE: f64 = 100.0;
