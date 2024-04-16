@@ -1,17 +1,8 @@
 /*****************************************************************/
-//! [Conway's Game of Life]
+//! [Mandelbrot Set Zoom]
 /*****************************************************************/
 //!
-//! Parallel implementation of John Conway's 1970 "Game of Life".
-//! Takes advantage of the Rayon Crate for automagically managed
-//! parallel iterators, as drop-in replacements for standard
-//! Rust iterators.
-//!
-//! All graphics are generated using OpenGL with help from
-//! Rust's Piston API. Currently, each individual pixel is rendered
-//! as an OpenGL shape. There would be much more noticeable
-//! performance gains if this limitation were to be overcome,
-//! however this was not ameliorated due to time constraints.
+//! Description Here
 //!
 //! [Authors]
 //! Aiden Manuel (Original programming and idea),
@@ -29,6 +20,7 @@ extern crate opengl_graphics;
 extern crate piston;
 extern crate rand;
 extern crate chrono;
+extern crate rayon;
 
 // Import necessary functions from external libraries.
 use glutin_window::GlutinWindow as Window;
@@ -38,13 +30,24 @@ use piston::event_loop::{EventSettings, Events};
 use piston::input::{RenderArgs, RenderEvent, UpdateArgs, UpdateEvent};
 use piston::window::WindowSettings;
 use num::complex::Complex as cmp;
+use piston::GenericEvent;
 
+// All metrics pre-defined as constants
+// so that they can be used to define
+// array sizes.
+
+// Graph scale controls window size, and
+// iterations controls zoom depth
 const GRAPH_SCALE: f64 = 100.0;
 const ITERATIONS: i16 = 1200;
 
+// Arbitrary point defined on the complex
+// plane which generates a visually appealing
+// zoom
 const MAGIC_RE: f64 = 0.3602404434376143632361252444495453084826;
 const MAGIC_IM: f64 = -0.641313061064803174860375015179302066579;
 
+// Real and Imaginary domains defined mathematically
 const RE1: f64 = MAGIC_RE - 2.0;
 const RE2: f64 = MAGIC_RE + 2.0;
 const DRE: f64 = RE2 - RE1;
@@ -55,6 +58,8 @@ const DIM: f64 = IM2 - IM1;
 
 const RAT: f64 = DIM / DRE;
 
+// Real and Imaginary domains defined in terms of
+// array sizes (for setting window scale)
 const RE_MIN: i16 = (RE1 * GRAPH_SCALE) as i16;
 const RE_MAX: i16 = (RE2 * GRAPH_SCALE) as i16;
 const DOMAIN: usize = (RE_MAX - RE_MIN) as usize;
@@ -63,6 +68,24 @@ const IM_MIN: i16 = (IM1 * GRAPH_SCALE) as i16;
 const IM_MAX: i16 = (IM2 * GRAPH_SCALE) as i16;
 const RANGE: usize = (IM_MAX - IM_MIN) as usize;
 
+/// [App]
+/// The App struct defines the Piston application and associated
+/// data. All fields within this structure are statically accessible
+/// from within the application's associated methods.
+///
+/// Fields:
+/// [gl] OpenGL graphics backend;
+/// [vals] Array of values determining whether a point is in the set or not;
+/// [re_min] The current minimum domain (real);
+/// [re_max] The current maximum domain (real);
+/// [im_min] The current minimum domain (imaginary);
+/// [im_max] The current maximum domain (imaginary);
+/// [re_scale] scale factor for real numbers (horizontal scale);
+/// [im_scale] scale factor for imaginary numbers (vertical scale);
+/// [zoom] current zoom amount (starts at 0.10);
+/// [scalar] arbitrary value that determines the colouring;
+/// [step_factor] arbitrary value that determines the change of the scalar;
+/// [paused] Game state.
 pub struct App { 
     // OpenGL drawing backend.
     gl: GlGraphics,
@@ -79,24 +102,31 @@ pub struct App {
     paused: bool,
 }
 
+/// [App]
+/// Application related methods.
 impl App {
-    /////////
-    /// RENDER FUNCTION
-    ///////
+    
+    /// [Render]
+    /// The render method is required by Piston in order to service
+    /// the application control-flow, using callbacks. The render
+    /// method is specifically meant to be where all calls to OpenGL
+    /// happen, and is meant to be called every frame.
+    ///
+    /// This program implements the render method by checking the current
+    /// value in vals at each pixel and then colouring it based on the scalar
+    ///
+    /// Being a Piston callback, its only parameters are itself,
+    /// and the Piston render arguments.
 
     fn render(&mut self, args: &RenderArgs) {
         use graphics::*;
 
-        // Defining all necessary constants
-
+        // Constants for colouring:
         let black: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
         let mut colour = black;
         let mut colour_mod = 0.0;
 
-        /////////
-        // DRAW FUNCTION
-        ///////
-
+        // Iterate over all the points in the array
         for b in 0..RANGE {
             for a in 0..DOMAIN {
 
@@ -107,6 +137,8 @@ impl App {
                 // OpenGL is used for rendering it to the screen.
                 self.gl.draw(args.viewport(), |c, gl| {
 
+                    // Depending on the value of the point, we decide whether or not it is
+                    // in the Mandebrot set.
                     if self.vals[b][a] == ITERATIONS {
                         colour = black;
                     } else {
@@ -129,26 +161,47 @@ impl App {
             }
         }
     }
+    
+    /// [Update Parallel]
+    ///
+    /// The update method is required by Piston in order to service
+    /// the application logic (as opposed to rendering) using callbacks.
+    /// The update method contains user-defined logic which does not
+    /// necessarily have to do with drawing to OpenGL.
+    ///
+    /// In this case, the method is going through every point in the 
+    /// current domain, and determining whether or not it is a member
+    /// of the set by iterating over the Mandelbrot function.
+    /// 
+    /// The is the parallelized version of the function, using rayon.
+    ///
+    /// Being a Piston callback, its only parameters are itself,
+    /// and the Piston update arguments.
 
-    
-    /////////
-    /// UPDATE FUNCTION
-    //////
-    
-    // PARALLEL UPDATE CODE
-    
     fn update_parallel(&mut self, _args: &UpdateArgs) {
+        // Only update if the game is unpaused:
         if !self.paused {
+
+            // Defining immutable values for use in calculations:
             let bound = cmp::new(2.0, 0.0);
             const MIDDLE_IM: f64 = RANGE as f64 / 2.0;
             const MIDDLE_RE: f64 = DOMAIN as f64 / 2.0;
 
             let mut values: [[i16; DOMAIN]; RANGE] = [[0; DOMAIN]; RANGE];
-
+            
+            // Rayon parallel iterator:
+            // .enumerate() -> Provides us with an index for each iterated value.
+            //                 this is necessary for the Game of Life.
+            // .for_each()  -> Iterates over each value of the parallel iterator.
+            //                 Provides the index of the focused value, and a
+            //                 reference to the focused value itself within its
+            //                 closure (straight brackets).
             values.par_iter_mut()
                 .enumerate()
                 .for_each(|(im, b)| {
-
+                    // All variables we want to use in the parallel loop must be 
+                    // declared on each processor, because of Rust's ownership
+                    // principles:
                     let mut z: cmp<f64>;
                     let mut z_next: cmp<f64>;
                     let mut c: cmp<f64>;
@@ -158,12 +211,11 @@ impl App {
                     let mut b_float: f64;
 
                     for a in 0..DOMAIN {
-                        //let center_dist = f64::sqrt(f64::powf(MIDDLE_IM - im as f64, 2.0) + f64::powf(MIDDLE_RE - a as f64, 2.0));
-                        //println!("d = {0}, a = {1}, b = {2}", center_dist, a, im);
                         (a_float, b_float) = ((a as f64 / self.re_scale + self.re_min), (im as f64 / self.im_scale + self.im_min));
                         c = cmp::new(a_float, b_float);
                         z = cmp::new(0.0, 0.0);
                         
+                        // This is the loop where we test if a value is in or out of the set:
                         while !done && count < (ITERATIONS) {
                             z_next = z * z + c;
                             z = z_next;
@@ -183,6 +235,9 @@ impl App {
 
             self.vals = values;
 
+            // Everything from this point on mostly handles visuals, and was derived via
+            // good ol' trial and error. Messing with the zoom to get it just right, and
+            // then figuring out how the colour scalar should work:
             let re_zoom = self.zoom;
             let im_zoom = re_zoom * RAT;
 
@@ -220,7 +275,21 @@ impl App {
         
     }
 
-    // SEQUENTIAL UPDATE CODE
+    /// [Update Sequential]
+    ///
+    /// The update method is required by Piston in order to service
+    /// the application logic (as opposed to rendering) using callbacks.
+    /// The update method contains user-defined logic which does not
+    /// necessarily have to do with drawing to OpenGL.
+    ///
+    /// In this case, the method is going through every point in the 
+    /// current domain, and determining whether or not it is a member
+    /// of the set by iterating over the Mandelbrot function.
+    /// 
+    /// The is the sequential version of the function, using rayon.
+    ///
+    /// Being a Piston callback, its only parameters are itself,
+    /// and the Piston update arguments.
 
     fn update_sequential(&mut self, _args: &UpdateArgs) {
         if !self.paused {
@@ -292,6 +361,14 @@ impl App {
             self.scalar -= self.step_factor;
         }
     }
+    
+    /// [Event]
+    ///
+    /// The event method is required by Piston in order to service
+    /// user interaction using callbacks. This includes key presses,
+    /// and support for mouse interaction. Such input is necessary
+    /// for clearing the board, regenerating the board, and drawing
+    /// directly to the board.
 
     fn event<E: GenericEvent>(&mut self, pos: [f64; 2], e: &E) {
         use piston::input::{Button, Key};
@@ -309,6 +386,12 @@ impl App {
         }
     }
 
+    /// [Print]
+    /// 
+    /// This is a simple function that gets called when the 'P' key 
+    /// is pressed that prints all the details of the current frame
+    /// of simulation to the terminal for debug.
+
     fn print(&mut self) {
         println!(">===---\nre_min={0}\nre_max={1}\nim_min={2}\nim_max={3}\nre_scale={4}\nim_scale={5}\nzoom={6}\nscalar={7}\nstep_factor={8}\nGRAPH_SCALE={9}\n>===---", 
                  self.re_min, self.re_max, self.im_min, self.im_max, self.re_scale, self.im_scale, self.zoom, self.scalar, self.step_factor, GRAPH_SCALE);
@@ -316,12 +399,13 @@ impl App {
 
 }
 
-///////////////////////////////
-// Most of this main method was not programmed by me. It comes
-// from a Piston tutorial, which is the crate I'm using to update
-// the do the graphics. See example from repo here:
-// https://github.com/PistonDevelopers/Piston-Tutorials/tree/master/getting-started
-///////////////////////////////
+/// [Main]
+///
+/// Note: Most of this main method comes from a Piston tutorial.
+/// https://github.com/PistonDevelopers/Piston-Tutorials/tree/master/getting-started
+///
+/// This method sets up the application state, and initializes the OpenGL backend for
+/// execution by Piston.
 
 fn main() {
     // Change this to OpenGL::V2_1 if not working.
@@ -334,10 +418,11 @@ fn main() {
         .build()
         .unwrap();
 
-    // Create a new game and run it.
 
+    // Defining the vals array based on the domain and range
     let vals = [[0; DOMAIN]; RANGE];
 
+    // Create a new simulation, and run it
     let mut app = App {
         gl: GlGraphics::new(opengl),
         vals: vals,
@@ -353,6 +438,8 @@ fn main() {
         paused: false,
     };
 
+    // The main piston loop, which actually runs all the app
+    // functions repeatedly
     let mut events = Events::new(EventSettings::new());
     while let Some(e) = events.next(&mut window) {
         app.event([0.0, 0.0], &e);
