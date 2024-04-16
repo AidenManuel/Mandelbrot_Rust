@@ -2,7 +2,15 @@
 //! [Mandelbrot Set Zoom]
 /*****************************************************************/
 //!
-//! Description Here
+//! This is a program which handles the simulation and visual 
+//! rendering of a popular mathematical fractal called The 
+//! Mandelbrot Set. The set is defined by the points on the
+//! complex plane which converge on the function z^2 + c.
+//! 
+//! This program uses the Piston game crate and OpenGL on
+//! the backend to perform all the rendering for the zoom.
+//! For the sake of parallelizing the code, Rayon was used,
+//! and after brief testing a near linear speedup was observed.
 //!
 //! [Authors]
 //! Aiden Manuel (Original programming and idea),
