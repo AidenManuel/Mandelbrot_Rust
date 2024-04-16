@@ -1,3 +1,28 @@
+/*****************************************************************/
+//! [Conway's Game of Life]
+/*****************************************************************/
+//!
+//! Parallel implementation of John Conway's 1970 "Game of Life".
+//! Takes advantage of the Rayon Crate for automagically managed
+//! parallel iterators, as drop-in replacements for standard
+//! Rust iterators.
+//!
+//! All graphics are generated using OpenGL with help from
+//! Rust's Piston API. Currently, each individual pixel is rendered
+//! as an OpenGL shape. There would be much more noticeable
+//! performance gains if this limitation were to be overcome,
+//! however this was not ameliorated due to time constraints.
+//!
+//! [Authors]
+//! Aiden Manuel (Original programming and idea),
+//! Matthew Peterson (Parallel programming and optimizations, commenting)
+//!
+//! [Class] CS 3123, Dr. Jeff Mark McNally
+//!
+//! [Date] Submitted April 11, 2024
+/*****************************************************************/
+
+// Define external libraries.
 extern crate glutin_window;
 extern crate graphics;
 extern crate opengl_graphics;
@@ -5,12 +30,12 @@ extern crate piston;
 extern crate rand;
 extern crate chrono;
 
+// Import necessary functions from external libraries.
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::event_loop::{EventSettings, Events};
 use piston::input::{RenderArgs, RenderEvent, UpdateArgs, UpdateEvent};
 use piston::window::WindowSettings;
-
 use num::complex::Complex as cmp;
 
 const GRAPH_SCALE: f64 = 30.0;
